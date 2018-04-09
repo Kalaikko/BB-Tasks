@@ -1,0 +1,44 @@
+function doGet(e) 
+{
+  var totalSheet = SpreadsheetApp.openById('1xmxPey-o0ZdnQQz6LsoHyHKOnvpPB73bJ7y1dge2uj8');
+  var sheet_1 = totalSheet.getSheetByName("CP_Proj");
+  var jsonArr = [];
+  var titleRow = sheet_1.getRange(1, 1, 1, sheet_1.getLastColumn()).getValues();   // Getting the Titles of sheet
+  var rows = sheet_1.getRange(2, 1, sheet_1.getLastRow()-1,sheet_1.getLastColumn()).getValues();   //Getting remaining rows and columns of sheet
+    
+  //Fetching the values and converting to json format
+  for(var i=0;i<rows.length;i++) {
+   var rowValue = rows[i];
+   var record = {};
+   for(var j=0;j<rows[0].length;j++){
+    record[titleRow[0][j]] = rowValue[j];    
+   }
+   jsonArr.push(record);
+  }
+  var jsonData = JSON.stringify(jsonArr,null,'\t');
+  Logger.log(jsonData);
+
+  //Writing the json format to google docs
+  var docs = DocumentApp.openByUrl("https://docs.google.com/document/d/17BTmL-8yX6Fyy3iNYusTLSvTh_rlsx5FT1qYA7ZscVw/edit");
+  var body = docs.getBody();
+  body.setText(jsonData);
+  toPdfMail(totalSheet,docs);
+}
+
+//Function for converting sheet and Docs to pdf and sending mail as attachment
+function toPdfMail(totalSheet,docs)
+{
+  //Converting Sheet to PDF
+  var sheetPdf = DriveApp.getFileById(totalSheet.getId()).getAs('application/pdf').getBytes();
+  var attach_1 = {fileName:'Input_Sheet.pdf',content:sheetPdf, mimeType:'application/pdf'}; 
+
+  //Converting Docs to PDF
+  var docsPdf = DriveApp.getFileById(docs.getId()).getAs('application/pdf').getBytes();
+  var attach_2 = {fileName:'Output_Docs.pdf',content:docsPdf, mimeType:'application/pdf'}; 
+ 
+  //Attaching pdf and sending it
+  var message = "Completed Task and attached both Sheet to pdf and Docs to pdf";
+  var subject = "CP_Task";
+  var emailTo = "sethuraman.y@bankbazaar.com , kalaikko.ss@bankbazaar.com";
+  MailApp.sendEmail(emailTo, subject, message, {attachments:[attach_1,attach_2]});
+}
