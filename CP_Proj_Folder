@@ -1,0 +1,70 @@
+function myFunction() {
+  var drive = DriveApp.getFolderById("1HSpz1eMRU2q7SNTIiE4Rc1fT0n86-_id");
+  var files = drive.getFiles();
+  var fileArr = []
+  while(files.hasNext()) 
+  {
+    var f = files.next();
+    if(f.getMimeType() == "application/vnd.google-apps.spreadsheet") 
+    {
+      fileArr.push(f.getId());
+    }
+  }
+  Logger.log(fileArr);
+  doGet(fileArr,drive);
+}
+
+function doGet(fileArr,drive) 
+{
+  var counter = 1;
+  for(var k=0; k<2; k++) 
+  {
+    var totalSheet = SpreadsheetApp.openById(fileArr[k]);
+    var sheetName = totalSheet.getActiveSheet().getName()
+    var sheet_1 = totalSheet.getSheetByName(sheetName);
+    var jsonArr = [];
+    var titleRow = sheet_1.getRange(1, 1, 1, sheet_1.getLastColumn()).getValues();   // Getting the Titles of sheet
+    var rows = sheet_1.getRange(2, 1, sheet_1.getLastRow()-1,sheet_1.getLastColumn()).getValues();   //Getting remaining rows and columns of sheet
+    
+    //Fetching the values and converting to json format
+    for(var i=0;i<rows.length;i++) {
+      var rowValue = rows[i];
+      var record = {};
+      for(var j=0;j<titleRow[0].length;j++){
+        record[titleRow[0][j]] = rowValue[j];    
+      }
+      jsonArr.push(record);
+    }
+    var jsonData = JSON.stringify(jsonArr,null,'\t');
+    
+    //Writing the json format to google docs
+    //var file = "out_"+counter;
+    var doc = DocumentApp.create("out"+counter);
+    //var file = DriveApp.createFile("name", "content", MimeType.MICROSOFT_WORD);
+    //Logger.log(file);
+    //var id = doc.getId()
+    var docs = DocumentApp.openById(doc.getId());
+    var body = docs.getBody();
+    body.setText(jsonData);
+    docs.saveAndClose();
+    counter = counter + 1;
+    toPdfMail(totalSheet,docs);
+  }
+}
+
+function toPdfMail(totalSheet,docs)
+{
+  //Converting Sheet to PDF
+  var sheetPdf = DriveApp.getFileById(totalSheet.getId()).getAs('application/pdf').getBytes();
+  var attach_1 = {fileName:'Input_Sheet.pdf',content:sheetPdf, mimeType:'application/pdf'}; 
+  
+  //Converting Docs to PDF
+  var docsPdf = DriveApp.getFileById(docs.getId()).getAs('application/pdf').getBytes();
+  var attach_2 = {fileName:'Output_Docs.pdf',content:docsPdf, mimeType:'application/pdf'};
+  
+  //Attaching pdf and sending it
+  var message = "Completed Task and attached both Sheet to pdf and Docs to pdf";
+  var subject = "CP_Task";
+  var emailTo = "kalaikko.ss@bankbazaar.com , sethuraman.y@bankbazaar.com";
+  MailApp.sendEmail(emailTo, subject, message, {attachments:[attach_1,attach_2]});
+}
